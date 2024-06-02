@@ -35,9 +35,6 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	bool gameStart = 0;
 	int time = 0;
 
-	//time up setup
-	int timeUp = 0;
-
 	//bonus
 	bool specialBonus = 0;
 	int specialTime = 0;
@@ -48,6 +45,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	int mediumBeanPoint = 0;
 	int largeBeanPoint = 0;
 	int specialBeanPoint = 0;
+
+	//result
+	int score = smallBeanPoint + mediumBeanPoint +
+		largeBeanPoint + specialBeanPoint;
+	//time up setup
+	int timeUp = 0;
 
 	///////////////////////////////////////////////////
 	///////////////    BACKGROUND    //////////////////
@@ -132,8 +135,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	int hit = 0;
 
 	///////////////////////////////////////////////////
-	/////////////////////   SCORE    //////////////////
+	////////////////   SCORE  RESET  //////////////////
 	///////////////////////////////////////////////////
+
+
 
 	// キー入力結果を受け取る箱
 	char keys[256] = { 0 };
@@ -474,12 +479,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		//score//
 		Novice::ScreenPrintf(10, 10, "Score : %d",
-			smallBeanPoint + mediumBeanPoint +
+			score = smallBeanPoint + mediumBeanPoint +
 			largeBeanPoint + specialBeanPoint);
 		Novice::ScreenPrintf(10, 30,
 			"Time Alive : %d", timeUp);
 		Novice::ScreenPrintf(10, 50, "Total Score : %d",
-			(smallBeanPoint + mediumBeanPoint +
+			(score = smallBeanPoint + mediumBeanPoint +
 				largeBeanPoint + specialBeanPoint) * timeUp);
 
 		//time//
