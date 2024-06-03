@@ -4,12 +4,11 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 
-
-const char kWindowTitle[] = "GC1D_06_サティッピッタヤユット＿サハチャート_MT1_";
+const char kWindowTitle[] = "GC1D_06_サティッピッタヤユット＿サハチャート_タイトル";
 const int kWindowWidth = 1280; //screen width
 const int kWindowHeight = 720; //screen height
 
-//enum 変数 プレイヤー向き方向　Player facing direction
+//enum 変数 プレイヤー向き方向
 enum Direction {  //Direction 名をつける　use num to point direction
 	Right,
 	Left
@@ -22,60 +21,37 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	Novice::Initialize(kWindowTitle, kWindowWidth, kWindowHeight);
 
 	///////////////////////////////////////////////////
-	//////////////   RANDOM INSTALL   /////////////////
+	/////////////////   RANDOM TIME   /////////////////
 	///////////////////////////////////////////////////
 
 	unsigned int currentTime = (int)time(nullptr);
 	srand(currentTime);
 
 	///////////////////////////////////////////////////
-	////////////////   GAME FUNCTION   ////////////////
-	///////////////////////////////////////////////////
-
-	bool gameStart = 0;
-	int time = 0;
-
-	//bonus
-	bool specialBonus = 0;
-	int specialTime = 0;
-	int specialBeanTime = 0;
-
-	//bean score
-	int smallBeanPoint = 0;
-	int mediumBeanPoint = 0;
-	int largeBeanPoint = 0;
-	int specialBeanPoint = 0;
-
-	//result
-	int score = smallBeanPoint + mediumBeanPoint +
-		largeBeanPoint + specialBeanPoint;
-	//time up setup
-	int timeUp = 0;
-
-	///////////////////////////////////////////////////
 	///////////////    BACKGROUND    //////////////////
 	///////////////////////////////////////////////////
 
 	int topBackground = 80;
+	int downBackground = 640;
 
 	///////////////////////////////////////////////////
 	///////////////////   PLAYER   ////////////////////
 	///////////////////////////////////////////////////
 
-	float playerPosX = kWindowWidth / 2;
-	float playerPosY = kWindowHeight / 2;
+	float playerPosX = kWindowWidth / 2; //starting position
+	float playerPosY = kWindowHeight / 2;//starting position
 	float playerHeight = 100;
 	float playerWidth = 100;
+	float playerRadius = 65; //player hitbox
 	int playerTexture = Novice::LoadTexture("./NoviceResources/white1x1.png");
-	float playerMoveX = 0;
-	float playerMoveY = 0;
 	float playerMoveSpeed = 5;
-	float playerRadius = 65;
-	int playerDirection = Left;
-	bool dash = 1;
-	int dashCooldown = 120;
+	float playerMoveX = 0; //movement check
+	float playerMoveY = 0;
+	bool dash = 1; //dash function
+	int dashCooldown = 0; //dash cooldown
+	int playerDirection = Left; //player starting facing direction (ENUM
 
-	//for drawQuad
+	//for drawQuad position (P)
 	float qLeftTopX = -playerWidth / 2;   // O-
 	float qLeftTopY = -playerHeight / 2;  // --
 
@@ -88,16 +64,12 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	float qRightDownX = playerWidth / 2;  // --
 	float qRightDownY = playerHeight / 2; // -O
 
-	//frame setup
-	int frame = 0;
-	int rotate = 0;
-
-	//rotate calculate
+	//rotate calculate for spinning effect
 	float theta = 0; //rotate angle
 
 	///////////////////////////////////////////////////
 	/////////////////////   BEAN   ////////////////////
-	///////////////  STARTING POSITION  ///////////////
+	///////////////  SPAWNING POSITION  ///////////////
 	///////////////////////////////////////////////////
 
 	int redBeanSmallPosX = kWindowWidth / 2;
@@ -126,19 +98,35 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 	float largeBeanHitbox = 0;
 	float specialBeanHitbox = 0;
 
+	///////////////////////////////////////////////////
+	/////////////////   BEAN SPEED   //////////////////
+	///////////////////////////////////////////////////
+
 	int smallBeanSpeed = 3;
 	int mediumBeanSpeed = 2;
 	int largeBeanSpeed = 1;
 	int specialBeanSpeed = 5;
 
-	//hit calculate
-	int hit = 0;
-
 	///////////////////////////////////////////////////
-	////////////////   SCORE  RESET  //////////////////
+	/////////////   SPECIAL BEAN BONUS   //////////////
 	///////////////////////////////////////////////////
 
+	bool specialBonus = 0;
+	int specialTime = 0;
 
+	///////////////////////////////////////////////////
+	////////////////   GAME FUNCTION   ////////////////
+	///////////////////////////////////////////////////
+
+	bool gameStart = 0;
+	int frame = 0; //lot of use
+	int hit = 0; //hit calculate
+	int rotate = 0; //check rotate
+	int time = 0;
+	int timeAlive = 0;
+	int score = 0;
+
+	///////////////////////////////////////////////////
 
 	// キー入力結果を受け取る箱
 	char keys[256] = { 0 };
@@ -157,6 +145,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/// ↓更新処理ここから
 		///
 
+		//reset//
+		if (keys[DIK_SPACE] && !preKeys[DIK_SPACE] && gameStart == 0) {
+			timeAlive = 0;
+			score = 0;
+			dashCooldown = 1;
+		}
+
 		///////////////////////////////////////////////////
 		//////////////////  GAME START  ///////////////////
 		///////////////////  TIME UP  /////////////////////
@@ -169,7 +164,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		if (gameStart == 1) { // time count down
 			time = time - 1;
 			if (time % 60 == 1) { //divided by 60 will count as 1
-				timeUp += 1;
+				timeAlive += 1;
 			}
 		}
 		if (time == 0) { // when time 600 is 0
@@ -177,61 +172,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			time = 600; // add time
 		}
 
-		///////////////////////////////////////////////////
-		/////////////////////   SPIN    ///////////////////
-		///////////////////////////////////////////////////
-
-		if (frame++ && gameStart == 1) { //rotate by frame
-			rotate = 1; // if rotate is true
-			if (frame % 1 == 0 && rotate == 1 && playerDirection == Left) {
-				theta += 3; // look faster
-			}
-			if (playerDirection == Right) {
-				theta -= 3; // look faster
-			}
-		}
-		else rotate = 0; // if rotate is false
-
-		///////////////////////////////////////////////////
-		/////////////////////  DASH  //////////////////////
-		///////////////////////////////////////////////////
-
-		if (keys[DIK_SPACE] && !preKeys[DIK_SPACE]) {
-			dash = 0;
-		}
-		if (dash == 0) {
-			dashCooldown = dashCooldown - 1;
-		}
-		if (dashCooldown == 0) {
-			dashCooldown = 120;
-			dash = 1;
-		}
-		if (dashCooldown >= 90 && dashCooldown < 120 && hit == 1) {
-			if (frame % 1 == 0 && rotate == 1 && playerDirection == Left) {
-				theta += 6;
-			}
-			if (playerDirection == Right) {
-				theta -= 6;
-			}
-		}
-		if (keys[DIK_W] && dashCooldown >= 90 && dashCooldown < 120) {
-			playerPosY -= playerMoveSpeed * 2;
-		}
-		if (keys[DIK_A] && dashCooldown >= 90 && dashCooldown < 120) {
-			playerPosX -= playerMoveSpeed * 2;
-		}
-		if (keys[DIK_S] && dashCooldown >= 90 && dashCooldown < 120) {
-			playerPosY += playerMoveSpeed * 2;
-		}
-		if (keys[DIK_D] && dashCooldown >= 90 && dashCooldown < 120) {
-			playerPosX += playerMoveSpeed * 2;
-		}
-
 		//////////////////////////   //////////////////////
 		/////////////////////   STAGE   ///////////////////
 		/////////////////////////  ////////////////////////
 
-		//boundary
 		if (playerPosX < 0 + playerWidth / 2) {
 			playerPosX = 0 + playerWidth / 2;
 		}
@@ -243,6 +187,110 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		}
 		if (playerPosY > kWindowHeight - playerHeight / 2) {
 			playerPosY = kWindowHeight - playerHeight / 2;
+		}
+
+		///////////////////////////////////////////////////
+		/////////////////////  PLAYER  ////////////////////
+		///////////////////////////////////////////////////
+
+		//player movement check
+		playerMoveX = 0;
+		playerMoveY = 0;
+
+		//player control
+		if (gameStart == 1) {
+			if (keys[DIK_W]) {
+				playerMoveY -= playerMoveSpeed;
+			}
+			if (keys[DIK_A]) {
+				playerMoveX -= playerMoveSpeed;
+				playerDirection = Left;
+			}
+			if (keys[DIK_S]) {
+				playerMoveY += playerMoveSpeed;
+			}
+			if (keys[DIK_D]) {
+				playerMoveX += playerMoveSpeed;
+				playerDirection = Right;
+			}
+		}
+
+		// 斜め移動 diagonal speed adjust
+		if (playerMoveX != 0 && playerMoveY != 0) { //when AW WD DS SA is pressed
+			playerMoveX /= sqrtf(2); //will use this speed instead
+			playerMoveY /= sqrtf(2);
+		}
+
+		//斜め速度状態
+		playerPosX += playerMoveX;
+		playerPosY += playerMoveY;
+
+		//for drawQuad new position (P') X = x*cos(theta) + y*sin(theta)
+		//player use this for control    Y = y*cos(theta) - x*sin(theta)
+		float qLeftTopRotatedY = qLeftTopY * cosf(theta) + qLeftTopX * sinf(theta) + playerPosY;
+		float qLeftTopRotatedX = qLeftTopX * cosf(theta) - qLeftTopY * sinf(theta) + playerPosX;
+
+		float qRightTopRotatedX = qRightTopX * cosf(theta) - qRightTopY * sinf(theta) + playerPosX;
+		float qRightTopRotatedY = qRightTopY * cosf(theta) + qRightTopX * sinf(theta) + playerPosY;
+
+		float qLeftDownRotatedY = qLeftDownY * cosf(theta) + qLeftDownX * sinf(theta) + playerPosY;
+		float qLeftDownRotatedX = qLeftDownX * cosf(theta) - qLeftDownY * sinf(theta) + playerPosX;
+
+		float qRightDownRotatedY = qRightDownY * cosf(theta) + qRightDownX * sinf(theta) + playerPosY;
+		float qRightDownRotatedX = qRightDownX * cosf(theta) - qRightDownY * sinf(theta) + playerPosX;
+
+		///////////////////////////////////////////////////
+		/////////////////////   SPIN    ///////////////////
+		///////////////////////////////////////////////////
+
+		if (frame++ && gameStart == 1) { //if frame+
+			rotate = 1; // it will set rotate to true
+			if (frame % 1 == 0 && rotate == 1 && playerDirection == Left) {
+				theta += 3; // rotate look faster
+			}
+			if (playerDirection == Right) {
+				theta -= 3; // rotate look faster
+			}
+		}
+		else rotate = 0; // if rotate is false
+
+		///////////////////////////////////////////////////
+		/////////////////////  DASH  //////////////////////
+		///////////////////////////////////////////////////
+
+		if (keys[DIK_SPACE] && !preKeys[DIK_SPACE]) {
+			dash = 0; //make dash status from 1 to 0
+		}
+		if (dash == 0 && gameStart == 1) { //if dash status is 0
+			dashCooldown = dashCooldown - 1; //dash time will countdown
+		}
+		if (dashCooldown == 0) { //if cooldown = 0 it will
+			dashCooldown = 120; //add 120 to cooldown
+			dash = 1; //make dash status form 0 to 1
+		}
+		if (dashCooldown >= 90 && dashCooldown < 120 && hit == 1 && gameStart == 1) { //make spin when hit
+			if (frame % 1 == 0 && rotate == 1 && playerDirection == Left) {
+				theta += 6;
+			}
+			if (playerDirection == Right) {
+				theta -= 6;
+			}
+		}
+		if (keys[DIK_W] && dashCooldown >= 90 &&
+			dashCooldown < 120 && gameStart == 1) { //for 30 frame
+			playerPosY -= playerMoveSpeed * 2; //go faster when dash 
+		}
+		if (keys[DIK_A] && dashCooldown >= 90 &&
+			dashCooldown < 120 && gameStart == 1) {
+			playerPosX -= playerMoveSpeed * 2;
+		}
+		if (keys[DIK_S] && dashCooldown >= 90 &&
+			dashCooldown < 120 && gameStart == 1) {
+			playerPosY += playerMoveSpeed * 2;
+		}
+		if (keys[DIK_D] && dashCooldown >= 90 &&
+			dashCooldown < 120 && gameStart == 1) {
+			playerPosX += playerMoveSpeed * 2;
 		}
 
 		///////////////////////////////////////////////////
@@ -268,30 +316,57 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		///////////////////////////////////////////////////
 
 		//collision detection
-		//small bean spawn
+		//small bean
 		if (smallBeanHitbox <= playerRadius + redBeanSmallRadius) {
 			hit = 1;
-			time += 10;
-			smallBeanPoint += 50;
-			redBeanSmallPosX = rand() % (kWindowWidth - 100);
-			redBeanSmallPosY = rand() % (kWindowHeight - topBackground) + topBackground;
+			time += 10; //time plus
+			score += 50; //score plus
+			redBeanSmallPosX = rand() % (kWindowWidth - 100); //respawn posX
+			redBeanSmallPosY = rand() % (kWindowHeight - topBackground) //respawn posY
+				+ topBackground;
 		}
+		//medium bean
+		if (mediumBeanHitbox <= playerRadius + redBeanMediumRadius) {
+			hit = 1;
+			time += 30; //time plus
+			score += 30; //score plus
+			redBeanMediumPosX = rand() % (kWindowWidth - 100); //respawn posX
+			redBeanMediumPosY = rand() % (kWindowHeight - topBackground) //respawn posY
+				+ topBackground;
+		}
+		//large bean
+		if (largeBeanHitbox <= playerRadius + redBeanLargeRadius) {
+			hit = 1;
+			time += 50; //time plus
+			score += 10; //score plus
+			redBeanLargePosX = rand() % (kWindowWidth - 100); //respawn posX
+			redBeanLargePosY = rand() % (kWindowHeight - topBackground) //respawn posY
+				+ topBackground;
+		}
+		//special bean
+		if (specialBeanHitbox <= playerRadius + specialBeanRadius) {
+			hit = 1;
+			specialBeanPosX = rand() % (kWindowWidth - 100); //respawn posX
+			specialBeanPosY = rand() % (kWindowHeight - topBackground) //respawn posY
+				+ topBackground;
+			specialBonus = 1; //got special bonus
+			specialTime = 60; //in this time frame
+
+			if (hit == 1) {
+				dashCooldown = 120; //reset dash cooldown
+				dash = 1;
+			}
+		}
+
+		///////////////////////////////////////////////////
+		//////////////////// BEAN MOVING //////////////////
+		///////////////////////////////////////////////////
+
 		//bean moving
 		if (hit == 1 && gameStart == 1) {
 			redBeanSmallPosX -= smallBeanSpeed;
 			if (redBeanSmallPosX <= 0)
 				redBeanSmallPosX = kWindowWidth;
-
-		}
-
-		//collision detection
-		//medium bean spawn
-		if (mediumBeanHitbox <= playerRadius + redBeanMediumRadius) {
-			hit = 1;
-			time += 30;
-			mediumBeanPoint += 30;
-			redBeanMediumPosX = rand() % (kWindowWidth - 100) + 70;
-			redBeanMediumPosY = rand() % (kWindowHeight - topBackground) + topBackground;
 		}
 		//bean moving
 		if (hit == 1 && gameStart == 1) {
@@ -299,36 +374,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			if (redBeanMediumPosX <= 0)
 				redBeanMediumPosX = kWindowWidth;
 		}
-
-		//collision detection
-		//large bean spawn
-		if (largeBeanHitbox <= playerRadius + redBeanLargeRadius) {
-			hit = 1;
-			time += 50;
-			mediumBeanPoint += 10;
-			redBeanLargePosX = rand() % (kWindowWidth - 100) + 70;
-			redBeanLargePosY = rand() % (kWindowHeight - topBackground) + topBackground;
-		}
+		//bean moving
 		if (hit == 1 && gameStart == 1) {
 			redBeanLargePosX -= largeBeanSpeed;
 			if (redBeanLargePosX <= 0)
 				redBeanLargePosX = kWindowWidth;
-		}
-
-		//collision detection
-		//special bean spawn
-		if (specialBeanHitbox <= playerRadius + specialBeanRadius) {
-			hit = 1;
-			specialBeanPoint += 10;
-			specialBeanPosX = rand() % (kWindowWidth - 100);
-			specialBeanPosY = rand() % (kWindowHeight - topBackground) + topBackground;
-			specialBonus = 1;
-			specialTime = 60;
-			specialBeanTime = 240;
-			if (hit == 1) {
-				dashCooldown = 120;
-				dash = 1;
-			}
 		}
 		//bean moving
 		if (hit == 1 && gameStart == 1) {
@@ -337,15 +387,19 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 				specialBeanPosX = kWindowWidth;
 		}
 
-		if (specialBonus == 1) { //bonus detail
+		///////////////////////////////////////////////////
+		////////////// SPECIAL BONUS DETAIL ///////////////
+		///////////////////////////////////////////////////
+
+		if (specialBonus == 1) {
 			specialTime = specialTime - 1;
 			if (frame % 1 == 0 && rotate == 1 &&
 				playerDirection == Left) {
-				theta -= 2;
+				theta -= 8;
 			}
 			if (frame % 1 == 0 && rotate == 1 &&
 				playerDirection == Right) {
-				theta += 2;
+				theta += 8;
 			}
 			if (specialTime == 0) {
 				specialBonus = 0;
@@ -357,73 +411,20 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		}
 		else playerMoveSpeed = 5;
 
-		///////////////////////////////////////////////////
-		/////////////////////  PLAYER  ////////////////////
-		///////////  MOVE, SPEED, ROTATE POINT  ///////////
-		///////////////////////////////////////////////////
-
-		//player speed setup
-		playerMoveX = 0;
-		playerMoveY = 0;
-
-		//player control
-		if (gameStart == 1) {
-			if (keys[DIK_W]) {
-				playerMoveY -= playerMoveSpeed;
-			}
-			if (keys[DIK_A]) {
-				playerMoveX -= playerMoveSpeed;
-				playerDirection = Left;
-			}
-			if (keys[DIK_S]) {
-				playerMoveY += playerMoveSpeed;
-			}
-			if (keys[DIK_D]) {
-				playerMoveX += playerMoveSpeed;
-				playerDirection = Right;
-			}
-		}
-
-		// 斜め移動 calculate
-		if (playerMoveX != 0 && playerMoveY != 0) {
-			playerMoveX /= sqrtf(2);
-			playerMoveY /= sqrtf(2);
-		}
-
-		//斜め速度状態
-		playerPosX += playerMoveX;
-		playerPosY += playerMoveY;
-
-		//rotate point setup
-		float qLeftTopRotatedY = qLeftTopY * cosf(theta) + qLeftTopX * sinf(theta) + playerPosY;
-		float qLeftTopRotatedX = qLeftTopX * cosf(theta) - qLeftTopY * sinf(theta) + playerPosX;
-
-		float qRightTopRotatedX = qRightTopX * cosf(theta) - qRightTopY * sinf(theta) + playerPosX;
-		float qRightTopRotatedY = qRightTopY * cosf(theta) + qRightTopX * sinf(theta) + playerPosY;
-
-		float qLeftDownRotatedY = qLeftDownY * cosf(theta) + qLeftDownX * sinf(theta) + playerPosY;
-		float qLeftDownRotatedX = qLeftDownX * cosf(theta) - qLeftDownY * sinf(theta) + playerPosX;
-
-		float qRightDownRotatedY = qRightDownY * cosf(theta) + qRightDownX * sinf(theta) + playerPosY;
-		float qRightDownRotatedX = qRightDownX * cosf(theta) - qRightDownY * sinf(theta) + playerPosX;
-
 		///
 		/// ↑更新処理ここまで
 		///
-		////////////////////////////////////////////////////////////////////
-		////////////////////////////////////////////////////////////////////
-		////////////////////////////////////////////////////////////////////
+
 		///
 		/// ↓描画処理ここから
 		///
-		/// 
 
 		///////////////////////////////////////////////////
 		///////////////    BACKGROUND    //////////////////
 		///////////////////////////////////////////////////
 
 		//background
-		Novice::DrawBox(0, 0, kWindowWidth, topBackground,
+		Novice::DrawBox(0, 80, kWindowWidth, downBackground,
 			0.0f, BLACK, kFillModeSolid);
 
 		///////////////////////////////////////////////////
@@ -438,16 +439,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 			(int)qLeftTopRotatedX, (int)qLeftTopRotatedY, (int)playerWidth, (int)playerHeight,
 			playerTexture, WHITE);
 
-		if (dash == 1) {
+		if (dash == 1) { //dash mark
 			Novice::DrawEllipse((int)playerPosX, (int)playerPosY,
 				(int)specialBeanRadius, (int)specialBeanRadius,
 				0.0f, 0xda70d6, kFillModeSolid);
 		}
-
-		//player circle collision
-		Novice::DrawEllipse((int)playerPosX, (int)playerPosY,
-			(int)playerRadius, (int)playerRadius,
-			0.0f, 0x000000, kFillModeSolid);
 
 		///////////////////////////////////////////////////
 		///////////////////   BEAN   //////////////////////
@@ -477,15 +473,13 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 		/////////////////////   TEXT   ////////////////////
 		///////////////////////////////////////////////////
 
-		//score//
+		//score
 		Novice::ScreenPrintf(10, 10, "Score : %d",
-			score = smallBeanPoint + mediumBeanPoint +
-			largeBeanPoint + specialBeanPoint);
+			score);
 		Novice::ScreenPrintf(10, 30,
-			"Time Alive : %d", timeUp);
+			"Time Alive : %d", timeAlive);
 		Novice::ScreenPrintf(10, 50, "Total Score : %d",
-			(score = smallBeanPoint + mediumBeanPoint +
-				largeBeanPoint + specialBeanPoint) * timeUp);
+			score * timeAlive);
 
 		//time//
 		Novice::ScreenPrintf(kWindowWidth / 4, 10,
@@ -511,13 +505,24 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
 		//time up//
 		if (gameStart == 0) {
-			Novice::ScreenPrintf((int)playerPosX - (int)playerWidth,
-				(int)playerPosY + (int)playerHeight + 20,
-				"Press SPACE to restart");
-			Novice::ScreenPrintf((int)playerPosX - (int)playerWidth / 3,
-				(int)playerPosY + (int)playerHeight,
-				"TIME UP!");
+			if (playerPosY < 500) {
+				Novice::ScreenPrintf((int)playerPosX - (int)playerWidth / 3,
+					(int)playerPosY + (int)playerHeight,
+					"TIME UP!");
+				Novice::ScreenPrintf((int)playerPosX - (int)playerWidth,
+					(int)playerPosY + (int)playerHeight + 20,
+					"Press SPACE to restart");
+			}
+			else {
+				Novice::ScreenPrintf((int)playerPosX - (int)playerWidth / 3,
+					(int)playerPosY - (int)playerHeight,
+					"TIME UP!");
+				Novice::ScreenPrintf((int)playerPosX - (int)playerWidth,
+					(int)playerPosY - (int)playerHeight + 20,
+					"Press SPACE to restart");
+			}
 		}
+
 		///
 		/// ↑描画処理ここまで
 		///
