@@ -1,0 +1,361 @@
+#include <Novice.h>
+#include <Vector2.h>
+#include <time.h>
+#include <stdlib.h>
+#define _USE_MATH_DEFINES
+#include <math.h>
+
+const char kWindowTitle[] = "GC1D_06_サティッピッタヤユット_サハチャート_MT1_評価課題_3";
+const int kWindowWidth = 1280; //screen width
+const int kWindowHeight = 720; //screen height
+
+enum GAME {
+	title,
+	play,
+	result
+};
+
+struct Ball {
+	Vector2 pos;
+	Vector2 velocity;
+	Vector2 acceleration;
+	float radius;
+	int speed;
+	int isMove;
+	int isAlive;
+};
+
+struct Bullet {
+	Vector2 pos;
+	bool isShot;
+	float radius;
+	float speed;
+};
+
+float WorldCoordinateSystemY(float y) {
+	y += (-kWindowHeight);
+	y *= -1;
+	return y;
+}
+
+float vLength(float x, float y) {
+	return sqrtf(x * x + y * y);
+}
+
+// Windowsアプリでのエントリーポイント(main関数)
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
+
+	// ライブラリの初期化
+	Novice::Initialize(kWindowTitle, kWindowWidth, kWindowHeight);
+
+	// キー入力結果を受け取る箱
+	char keys[256] = { 0 };
+	char preKeys[256] = { 0 };
+	///乱数
+	srand((unsigned)time(nullptr)); 
+
+	float floorHeight = 100;
+	float wallWidth = 100;
+	int currentScene = title;
+
+	/// プレイヤー
+	Ball player;
+	player.radius = 30;
+	player.pos.x = wallWidth + player.radius;
+	player.pos.y = 200;
+	player.speed = 6;
+
+	/// プレイヤー ライフ
+	int lifeBar = 200;
+	int lifeBarPosX = 40;
+	int lifeBarPosY = 300;
+	int lifeBarSizeX = 20;
+	int lifeBarSizeY = lifeBar;
+
+	/// 敵
+	const int enemyNum = 12;
+	Ball enemy[enemyNum];
+	for (int i = 0; i < enemyNum; i++) {
+		enemy[i].pos.x = kWindowWidth + float(rand() % 200);
+		enemy[i].pos.y = float(rand() % 200 + 500);
+		enemy[i].acceleration.x = 0;
+		enemy[i].velocity.x = 0;
+		enemy[i].velocity.y = 0;
+		enemy[i].radius = 20 + float(i * 5);
+		enemy[i].isMove = false;
+		enemy[i].isAlive = false;
+	}
+	float gravity = -0.1f;
+	float bounceBack = 0.8f;
+	int hitWall = false;
+	enemy[4].velocity.x = 1;
+
+	const int bulletNum = 3;
+	Bullet bullets[bulletNum];
+	for (int i = 0; i < bulletNum; i++) {
+		bullets[i].isShot = false;
+		bullets[i].pos.x = (float)150 + ((float)i * 100 - (i * 10));
+		bullets[i].pos.y = 50;
+		bullets[i].radius = 25.0f - (i * 10);
+		bullets[i].speed = 12.0f + (i * 5);
+	}
+	float bulletCoolTime = 0;
+
+	unsigned int isEnemyHit = 0;
+	int score = 0;
+	int frame = 0;
+	int timeScore = 0;
+
+	// ウィンドウの×ボタンが押されるまでループ
+	while (Novice::ProcessMessage() == 0) {
+		// フレームの開始
+		Novice::BeginFrame();
+
+		// キー入力を受け取る
+		memcpy(preKeys, keys, 256);
+		Novice::GetHitKeyStateAll(keys);
+
+		///
+		/// ↓更新処理ここから
+		///
+
+		switch (currentScene) {
+		case title:
+			if (keys[DIK_1]) {
+				currentScene = play;
+			}
+			break;
+
+		case play:
+			///タイムスコア
+			frame++;
+			if (frame % 60 == 0) {
+				timeScore += 1;
+			}
+			///control
+			if (keys[DIK_W] && player.pos.y < kWindowHeight - player.radius) {
+				player.pos.y += player.speed + hitWall;
+			}
+			if (keys[DIK_S] && player.pos.y > 100 + player.radius) {
+				player.pos.y -= player.speed + hitWall;
+			}
+			/// ===== プレイヤの弾処理　===== ///
+			if (keys[DIK_SPACE]) {
+				if (bulletCoolTime > 0) {
+					bulletCoolTime--;
+				}
+				if (bulletCoolTime <= 0) {
+					bulletCoolTime = 10;
+				}
+			}
+			else bulletCoolTime = 0;
+			///弾
+			for (int i = 0; i < bulletNum; i++) {
+				if (bulletCoolTime == 10 && !bullets[i].isShot) {
+					bullets[i].isShot = true;
+					bullets[i].pos.x = player.pos.x; ///draw bullet on player position
+					bullets[i].pos.y = player.pos.y;
+					break;
+				}
+			}
+			for (int i = 0; i < bulletNum; i++) {
+				if (bullets[i].isShot == true) {
+					bullets[i].radius = 25.0f - (i * 10) + hitWall * 5;
+					bullets[i].pos.x += bullets[i].speed + hitWall * 5; ///bullet go right side
+				}
+				if (bullets[i].pos.x > kWindowWidth + bullets[i].radius) { ///弾が消える
+					bullets[i].isShot = false;
+					bullets[i].pos.x = (float)150 + ((float)i * 100 - (i * 10)); ///bullet reset back to default position
+					bullets[i].pos.y = 50;
+				}
+			}
+
+			for (int i = 0; i < enemyNum; i++) {
+				if (!enemy[i].isMove) { ///to the left
+					enemy[i].isMove = true;
+				}
+				else {
+					enemy[i].velocity.x = -1.0f * i / 2;
+				}
+
+				if (enemy[i].isMove) { ///ball starting
+					enemy[i].velocity.x += -1.0f - float(0.2 * i);
+					enemy[i].velocity.y += gravity - float(0.05 * i); ///重力
+					enemy[i].pos.x += enemy[i].velocity.x;
+					enemy[i].pos.y += enemy[i].velocity.y;
+				}
+				///反転
+				if (enemy[i].pos.y <= floorHeight + enemy[i].radius) { /// when hit floor
+					enemy[i].velocity.y = -enemy[i].velocity.y * bounceBack + float(rand() % 5 - 0.1 * i);
+					enemy[i].pos.y += enemy[i].velocity.y;
+					enemy[i].radius--;
+					if (enemy[i].radius < 20) {
+						enemy[i].radius = 20;
+					}
+				}
+
+				if (enemy[i].pos.x < 0 + enemy[i].radius - enemy[i].radius) {
+					enemy[i].isMove = false;
+					enemy[i].pos.x = kWindowWidth + enemy[i].radius;
+					hitWall++;
+					score -= 100;
+					if (score <= 0) {
+						score = 0;
+					}
+					lifeBarSizeY -= 40;
+					if (lifeBarSizeY <= 0) {
+						lifeBarSizeY = 0;
+						break;
+					}
+				}
+			}
+
+			/// collision detect
+			for (int i = 0; i < bulletNum; i++) {
+				for (int j = 0; j < enemyNum; j++) {
+					float distance = vLength(
+						enemy[j].pos.x - bullets[i].pos.x,
+						enemy[j].pos.y - bullets[i].pos.y);
+					if (distance <= enemy[j].radius + bullets[i].radius) {
+						score += 100;
+						isEnemyHit++;
+						bullets[i].isShot = false;
+						bullets[i].pos.x = (float)150 + ((float)i * 100 - (i * 10));
+						bullets[i].pos.y = 50;
+						enemy[j].pos.x = kWindowWidth + enemy[j].radius;
+						enemy[j].pos.y = rand() % 500 + (float)150;
+					}
+				}
+			}
+			if (hitWall == 5 || score >= 10000) {
+				currentScene = result;
+				break;
+			}
+
+		case result:
+			if (keys[DIK_1]) { /// reset
+				player.radius = 30;
+				player.pos.x = wallWidth + player.radius;
+				player.pos.y = 200;
+				player.speed = 6;
+				lifeBar = 200;
+				lifeBarPosX = 40;
+				lifeBarPosY = 300;
+				lifeBarSizeX = 20;
+				lifeBarSizeY = lifeBar;
+				for (int i = 0; i < enemyNum; i++) {
+					enemy[i].pos.x = kWindowWidth + float(rand() % 200);
+					enemy[i].pos.y = float(rand() % 200 + 500);
+					enemy[i].acceleration.x = 0;
+					enemy[i].velocity.x = 0;
+					enemy[i].velocity.y = 0;
+					enemy[i].radius = 20 + float(i * 10);
+					enemy[i].isMove = false;
+					enemy[i].isAlive = false;
+					enemy[i].pos.x = kWindowWidth + float(rand() % 200);
+					enemy[i].pos.y = float(rand() % 200 + 500);
+					enemy[i].acceleration.x = 0;
+					enemy[i].velocity.x = 0;
+					enemy[i].velocity.y = 0;
+					enemy[i].radius = 20 + float(i * 10);
+					enemy[i].isMove = false;
+					enemy[i].isAlive = false;
+				}
+				for (int i = 0; i < bulletNum; i++) {
+					bullets[i].isShot = false;
+					bullets[i].pos.x = (float)150 + ((float)i * 100 - (i * 10));
+					bullets[i].pos.y = 50;
+					bullets[i].radius = 25.0f - (i * 10) + hitWall * 2;
+					bullets[i].speed = 12.0f + (i * 5);
+				}
+				hitWall = 0;
+				score = 0;
+				timeScore = 0;
+				currentScene = play;
+				break;
+			}
+		}
+		///
+		/// ↑更新処理ここまで
+		///
+
+		///
+		/// ↓描画処理ここから
+		///
+		switch (currentScene) {
+		case title:
+			Novice::ScreenPrintf(kWindowWidth / 2 - 200, (kWindowHeight / 2) - 15, "try to get 10000 score as fast as possible");
+			Novice::ScreenPrintf(kWindowWidth / 2 - 100, (kWindowHeight / 2) + 5, "Press 1 to Start");
+			Novice::DrawBox(kWindowWidth / 2 - 200, (kWindowHeight / 2) - 20, 380, 50, 0.0f, BLACK, kFillModeSolid);
+			break;
+		case play:
+			///==== score
+			Novice::ScreenPrintf(kWindowWidth / 2, (int)WorldCoordinateSystemY(50) + 20, "score : %d", score);
+			///time
+			Novice::ScreenPrintf(kWindowWidth / 2, (int)WorldCoordinateSystemY(50), "Timer : %d", timeScore);
+
+			break;
+		case result:
+			if (hitWall == 5) {
+				Novice::ScreenPrintf(kWindowWidth / 2 - 100, kWindowHeight / 2, "    You Lose");
+				Novice::ScreenPrintf(kWindowWidth / 2 - 100, kWindowHeight / 2 + 20, "Press 1 to Restart");
+				Novice::ScreenPrintf(kWindowWidth / 2 - 100, kWindowHeight / 2 + 40, "Press ESC to end");
+				Novice::DrawBox(kWindowWidth / 2 - 100, (kWindowHeight / 2) - 5, 160, 80, 0.0f, BLACK, kFillModeSolid);
+			}
+			if (score >= 10000) {
+				Novice::ScreenPrintf(kWindowWidth / 2 - 100, kWindowHeight / 2, "     You Win");
+				Novice::ScreenPrintf(kWindowWidth / 2 - 100, kWindowHeight / 2 + 20, "clear time : %d", timeScore);
+				Novice::ScreenPrintf(kWindowWidth / 2 - 100, kWindowHeight / 2 + 40, "Press 1 to Restart");
+				Novice::ScreenPrintf(kWindowWidth / 2 - 100, kWindowHeight / 2 + 60, "Press ESC to end");
+				Novice::DrawBox(kWindowWidth / 2 - 100, (kWindowHeight / 2) - 5, 160, 100, 0.0f, BLACK, kFillModeSolid);
+			}
+			break;
+		}
+
+		/// player
+		Novice::DrawEllipse((int)player.pos.x, (int)WorldCoordinateSystemY(player.pos.y),
+			(int)player.radius, (int)player.radius,
+			0.0f, RED, kFillModeSolid);
+		///full
+		Novice::DrawBox(lifeBarPosX, (int)WorldCoordinateSystemY((float)lifeBarPosY),
+			lifeBarSizeX, lifeBar, 0.0f, RED, kFillModeWireFrame);
+		///deplete
+		Novice::DrawBox(lifeBarPosX, (int)WorldCoordinateSystemY((float)lifeBarPosY),
+			lifeBarSizeX, lifeBarSizeY, 0.0f, RED, kFillModeSolid);
+
+		/// player bullet
+		for (int i = 0; i < bulletNum; i++) {
+			Novice::DrawEllipse(
+				(int)bullets[i].pos.x, (int)WorldCoordinateSystemY(bullets[i].pos.y),
+				(int)bullets[i].radius, (int)bullets[i].radius,
+				0.0f, RED, kFillModeSolid);
+		}
+
+		/// enemy
+		for (int i = 0; i < enemyNum; i++) {
+			Novice::DrawEllipse(
+				(int)enemy[i].pos.x, (int)WorldCoordinateSystemY(enemy[i].pos.y),
+				(int)enemy[i].radius, (int)enemy[i].radius,
+				0.0f, WHITE, kFillModeWireFrame);
+		}
+
+		///==== line
+		Novice::DrawLine((int)wallWidth, 0, (int)wallWidth, kWindowHeight, WHITE);
+		Novice::DrawLine(0, (int)WorldCoordinateSystemY(floorHeight), kWindowWidth, (int)WorldCoordinateSystemY(floorHeight), WHITE);
+
+		/// ↑描画処理ここまで
+		///
+
+		// フレームの終了
+		Novice::EndFrame();
+
+		// ESCキーが押されたらループを抜ける
+		if (preKeys[DIK_ESCAPE] == 0 && keys[DIK_ESCAPE] != 0) {
+			break;
+		}
+	}
+
+	// ライブラリの終了
+	Novice::Finalize();
+	return 0;
+}
